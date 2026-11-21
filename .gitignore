@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.env
+.env.local
+
+# Android / Capacitor build artifacts & signing keys
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/local.properties
+*.jks
+*.keystore
