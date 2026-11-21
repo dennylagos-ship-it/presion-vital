@@ -71,21 +71,30 @@ export function classifyBloodPressure(systolic, diastolic) {
   return CATEGORIES.normal;
 }
 
-export function validateReading(systolic, diastolic, pulse, dateTime) {
+export function validateReading(systolic, diastolic, pulse, dateTime, lang = "es") {
+  const isEn = lang === "en";
   if (!Number.isFinite(systolic) || systolic < 50 || systolic > 280) {
-    return "La presión sistólica debe estar entre 50 y 280 mmHg.";
+    return isEn
+      ? "Systolic pressure must be between 50 and 280 mmHg."
+      : "La presión sistólica debe estar entre 50 y 280 mmHg.";
   }
   if (!Number.isFinite(diastolic) || diastolic < 30 || diastolic > 180) {
-    return "La presión diastólica debe estar entre 30 y 180 mmHg.";
+    return isEn
+      ? "Diastolic pressure must be between 30 and 180 mmHg."
+      : "La presión diastólica debe estar entre 30 y 180 mmHg.";
   }
   if (systolic <= diastolic) {
-    return "La presión sistólica debe ser mayor que la diastólica.";
+    return isEn
+      ? "Systolic pressure must be greater than diastolic."
+      : "La presión sistólica debe ser mayor que la diastólica.";
   }
   if (pulse !== null && (!Number.isFinite(pulse) || pulse < 30 || pulse > 220)) {
-    return "El pulso debe estar entre 30 y 220 lpm (o déjalo vacío).";
+    return isEn
+      ? "Pulse must be between 30 and 220 bpm (or leave empty)."
+      : "El pulso debe estar entre 30 y 220 lpm (o déjalo vacío).";
   }
   if (!dateTime || Number.isNaN(new Date(dateTime).getTime())) {
-    return "Ingresa una fecha y hora válidas.";
+    return isEn ? "Enter a valid date and time." : "Ingresa una fecha y hora válidas.";
   }
   return null;
 }
@@ -160,12 +169,15 @@ export function classifyGlucose(value, context = "En ayunas") {
   return GLUCOSE_CATEGORIES.high;
 }
 
-export function validateGlucose(value, dateTime) {
+export function validateGlucose(value, dateTime, lang = "es") {
+  const isEn = lang === "en";
   if (!Number.isFinite(value) || value < 20 || value > 600) {
-    return "La glicemia debe estar entre 20 y 600 mg/dL.";
+    return isEn
+      ? "Blood glucose must be between 20 and 600 mg/dL."
+      : "La glicemia debe estar entre 20 y 600 mg/dL.";
   }
   if (!dateTime || Number.isNaN(new Date(dateTime).getTime())) {
-    return "Ingresa una fecha y hora válidas.";
+    return isEn ? "Enter a valid date and time." : "Ingresa una fecha y hora válidas.";
   }
   return null;
 }

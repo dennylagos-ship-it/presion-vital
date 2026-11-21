@@ -1,7 +1,11 @@
 import React, { useRef, useState } from "react";
 import { classifyBloodPressure } from "../utils/classification.js";
+import { STRINGS, getBPLabel, getLocale } from "../utils/i18n.js";
 
-export default function TrendChart({ readings, className = "" }) {
+export default function TrendChart({ readings, lang = "es", className = "" }) {
+  const t = STRINGS[lang] || STRINGS.es;
+  const locale = getLocale(lang);
+  const pulseUnit = lang === "en" ? "bpm" : "lpm";
   const [showPulse, setShowPulse] = useState(true);
   const [tooltip, setTooltip] = useState(null);
   const wrapperRef = useRef(null);
@@ -68,24 +72,22 @@ export default function TrendChart({ readings, className = "" }) {
     if (top < 0) top = 8;
 
     const cat = classifyBloodPressure(r.systolic, r.diastolic);
-    const dt = new Date(r.dateTime).toLocaleString("es-ES", {
+    const dt = new Date(r.dateTime).toLocaleString(locale, {
       day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit"
     });
 
-    setTooltip({ left, top, dt, r, cat });
+    setTooltip({ left, top, dt, r, catLabel: getBPLabel(cat.key, lang) });
   }
 
   return (
     <section className={`card chart-card ${className}`.trim()}>
       <div className="card-header">
         <div>
-          <h2>Tendencia de Presión Arterial</h2>
-          <p className="card-subtitle">
-            Evolución de sistólica, diastólica y banda de referencia normal (&lt;120/80 mmHg)
-          </p>
+          <h2>{t.trendBPTitle}</h2>
+          <p className="card-subtitle">{t.trendBPSub}</p>
         </div>
         <div className="chart-controls no-print">
           <label className="checkbox-inline">
@@ -94,16 +96,14 @@ export default function TrendChart({ readings, className = "" }) {
               checked={showPulse}
               onChange={(e) => setShowPulse(e.target.checked)}
             />
-            <span>Mostrar pulso</span>
+            <span>{t.showPulse}</span>
           </label>
         </div>
       </div>
 
       <div className="chart-wrapper" ref={wrapperRef}>
         {readings.length < 2 ? (
-          <div className="empty-state">
-            Registra al menos 2 mediciones para visualizar la gráfica de tendencia.
-          </div>
+          <div className="empty-state">{t.emptyChartBP}</div>
         ) : (
           <svg
             className="bp-chart"
@@ -225,17 +225,17 @@ export default function TrendChart({ readings, className = "" }) {
             <g>
               <circle cx={width - 250} cy={12} r={4} fill="#0d9488" />
               <text x={width - 242} y={16} fontSize="11" fontWeight="600" fill="var(--text)">
-                Sistólica
+                {t.systolic}
               </text>
               <circle cx={width - 165} cy={12} r={4} fill="#6366f1" />
               <text x={width - 157} y={16} fontSize="11" fontWeight="600" fill="var(--text)">
-                Diastólica
+                {t.diastolic}
               </text>
               {showPulse && (
                 <>
                   <circle cx={width - 75} cy={12} r={4} fill="#f59e0b" />
                   <text x={width - 67} y={16} fontSize="11" fontWeight="600" fill="var(--text)">
-                    Pulso
+                    {t.pulse}
                   </text>
                 </>
               )}
@@ -298,15 +298,15 @@ export default function TrendChart({ readings, className = "" }) {
           <div className="chart-tooltip" style={{ left: tooltip.left, top: tooltip.top }}>
             <strong>{tooltip.dt}</strong>
             <br />
-            Presión: <b>{tooltip.r.systolic}/{tooltip.r.diastolic}</b> mmHg
+            {lang === "en" ? "BP" : "Presión"}: <b>{tooltip.r.systolic}/{tooltip.r.diastolic}</b> mmHg
             <br />
             {tooltip.r.pulse != null && (
               <>
-                Pulso: <b>{tooltip.r.pulse}</b> lpm
+                {t.pulse}: <b>{tooltip.r.pulse}</b> {pulseUnit}
                 <br />
               </>
             )}
-            Estado: <b>{tooltip.cat.label}</b>
+            {lang === "en" ? "Status" : "Estado"}: <b>{tooltip.catLabel}</b>
           </div>
         )}
       </div>

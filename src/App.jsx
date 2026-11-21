@@ -28,6 +28,14 @@ import {
   shareReport,
   shareGlucoseReport
 } from "./utils/storage.js";
+import {
+  STRINGS,
+  detectInitialLang,
+  saveLang,
+  getBPLabel,
+  getGlucoseLabel,
+  getLocale
+} from "./utils/i18n.js";
 import ReadingForm from "./components/ReadingForm.jsx";
 import StatsPanel from "./components/StatsPanel.jsx";
 import TrendChart from "./components/TrendChart.jsx";
@@ -42,13 +50,6 @@ import {
 } from "./components/GlucoseModule.jsx";
 import { ProfilesModal, EditReadingModal, BackupModal } from "./components/Modals.jsx";
 
-const RANGE_LABELS = {
-  "7": "Últimos 7 días",
-  "30": "Últimos 30 días",
-  "90": "Últimos 90 días",
-  all: "Historial completo"
-};
-
 function filterByRange(readingsDesc, selectedRange) {
   if (selectedRange === "all") return readingsDesc;
   const days = Number(selectedRange);
@@ -60,6 +61,7 @@ function filterByRange(readingsDesc, selectedRange) {
 
 export default function App() {
   const [state, setState] = useState(() => loadState());
+  const [lang, setLang] = useState(() => detectInitialLang());
   const [activeModule, setActiveModule] = useState("bp");
   const [selectedRange, setSelectedRange] = useState("7");
   const [crisisDismissed, setCrisisDismissed] = useState(false);
@@ -71,9 +73,17 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("bp_theme") || "light");
   const [pdfPreview, setPdfPreview] = useState(false);
 
+  const t = STRINGS[lang] || STRINGS.es;
+  const locale = getLocale(lang);
+
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  useEffect(() => {
+    saveLang(lang);
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -162,7 +172,7 @@ export default function App() {
   }
 
   function handleDeleteReading(id) {
-    if (!confirm("¿Eliminar esta medición?")) return;
+    if (!confirm(t.confirmDeleteBP)) return;
     setState((prev) => ({
       ...prev,
       readings: prev.readings.filter((r) => r.id !== id)
@@ -193,7 +203,7 @@ export default function App() {
   }
 
   function handleDeleteGlucose(id) {
-    if (!confirm("¿Eliminar este registro de glicemia?")) return;
+    if (!confirm(t.confirmDeleteGl)) return;
     setState((prev) => ({
       ...prev,
       glucoseReadings: (prev.glucoseReadings || []).filter((r) => r.id !== id)
@@ -217,7 +227,11 @@ export default function App() {
   }
 
   function handleDeleteProfile(profile) {
-    if (!confirm(`¿Eliminar el perfil "${profile.name}" y todas sus mediciones?`)) return;
+    const msg =
+      lang === "en"
+        ? `Delete profile "${profile.name}" and all its readings?`
+        : `¿Eliminar el perfil "${profile.name}" y todas sus mediciones?`;
+    if (!confirm(msg)) return;
     setState((prev) => {
       const remainingProfiles = prev.profiles.filter((p) => p.id !== profile.id);
       const nextActive =
@@ -236,32 +250,32 @@ export default function App() {
   function handleExportCsv() {
     if (activeModule === "bp") {
       if (!rangedReadingsDesc.length) {
-        alert("No hay mediciones de presión arterial en el período para exportar.");
+        alert(t.noExportData);
         return;
       }
-      exportReadingsToCsv(activeProfile, rangedReadingsDesc);
+      exportReadingsToCsv(activeProfile, rangedReadingsDesc, lang);
     } else {
       if (!rangedGlucoseDesc.length) {
-        alert("No hay mediciones de glicemia en el período para exportar.");
+        alert(t.noExportData);
         return;
       }
-      exportGlucoseToCsv(activeProfile, rangedGlucoseDesc);
+      exportGlucoseToCsv(activeProfile, rangedGlucoseDesc, lang);
     }
   }
 
   async function handleShareReport() {
     const list = activeModule === "bp" ? rangedReadingsDesc : rangedGlucoseDesc;
     if (!list.length) {
-      alert("No hay mediciones en el período seleccionado para compartir.");
+      alert(t.noShareData);
       return;
     }
     const res =
       activeModule === "bp"
-        ? await shareReport(activeProfile, RANGE_LABELS[selectedRange], list)
-        : await shareGlucoseReport(activeProfile, RANGE_LABELS[selectedRange], list);
+        ? await shareReport(activeProfile, t.rangeLabels[selectedRange], list, lang)
+        : await shareGlucoseReport(activeProfile, t.rangeLabels[selectedRange], list, lang);
 
     if (res.method === "clipboard") {
-      alert("Resumen del reporte copiado al portapapeles. Ya puedes pegarlo en WhatsApp o correo.");
+      alert(t.copiedAlert);
     }
   }
 
@@ -283,42 +297,39 @@ export default function App() {
       glucoseReadings: Array.isArray(imported.glucoseReadings) ? imported.glucoseReadings : []
     });
     setShowBackupModal(false);
-    alert("Respaldo importado correctamente.");
+    alert(lang === "en" ? "Backup imported successfully." : "Respaldo importado correctamente.");
   }
 
   const profileInfoText = [
-    `Paciente: ${activeProfile.name}`,
-    activeProfile.age ? `${activeProfile.age} años` : null,
-    activeProfile.notes ? `Notas: ${activeProfile.notes}` : null
+    `${t.patient}: ${activeProfile.name}`,
+    activeProfile.age ? `${activeProfile.age} ${t.years}` : null,
+    activeProfile.notes ? `${t.notes}: ${activeProfile.notes}` : null
   ]
     .filter(Boolean)
     .join(" · ");
 
-  const reportTitle =
-    activeModule === "bp"
-      ? "Reporte de Control de Presión Arterial"
-      : "Reporte de Control de Glicemia";
+  const reportTitle = activeModule === "bp" ? t.reportTitleBP : t.reportTitleGl;
 
   return (
     <>
       {pdfPreview && (
         <div className="pdf-preview-bar">
-          <span>Vista previa del Reporte Médico (PDF)</span>
+          <span>{t.pdfPreviewBar}</span>
           <div className="pdf-preview-bar-actions">
             <button type="button" className="btn btn-primary btn-sm" onClick={handleShareReport}>
               <Share2 size={15} />
-              Compartir
+              {t.share}
             </button>
             <button type="button" className="btn btn-primary btn-sm" onClick={() => window.print()}>
               <Printer size={15} />
-              Imprimir / Guardar PDF
+              {t.printSavePdf}
             </button>
             <button
               type="button"
               className="btn btn-outline-light btn-sm"
               onClick={() => setPdfPreview(false)}
             >
-              Salir de vista previa
+              {t.exitPreview}
             </button>
           </div>
         </div>
@@ -331,8 +342,12 @@ export default function App() {
             <p>{profileInfoText}</p>
           </div>
           <div>
-            <p>Período: {RANGE_LABELS[selectedRange]}</p>
-            <p>Generado: {new Date().toLocaleString("es-ES")}</p>
+            <p>
+              {t.period}: {t.rangeLabels[selectedRange]}
+            </p>
+            <p>
+              {t.generated}: {new Date().toLocaleString(locale)}
+            </p>
           </div>
         </div>
       </header>
@@ -345,26 +360,25 @@ export default function App() {
             </span>
             <div>
               <span className="brand-title">PresiónVital</span>
-              <span className="brand-subtitle">Control Arterial y Glicemia</span>
+              <span className="brand-subtitle">{t.appSubtitle}</span>
             </div>
           </div>
 
           <div className="topbar-actions">
             <div className="profile-selector-wrap">
               <label htmlFor="profileSelect" className="sr-only">
-                Perfil activo
+                {t.profiles}
               </label>
               <select
                 id="profileSelect"
                 className="select-profile"
                 value={activeProfile.id}
                 onChange={(e) => handleSelectProfile(e.target.value)}
-                title="Cambiar perfil"
               >
                 {state.profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
-                    {p.age ? ` (${p.age} años)` : ""}
+                    {p.age ? ` (${p.age} ${t.years})` : ""}
                   </option>
                 ))}
               </select>
@@ -372,67 +386,57 @@ export default function App() {
                 type="button"
                 className="btn btn-outline btn-sm"
                 onClick={() => setShowProfilesModal(true)}
-                title="Gestionar perfiles"
+                title={t.profiles}
               >
                 <Users size={15} />
-                <span className="hide-xs">Perfiles</span>
+                <span className="hide-xs">{t.profiles}</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setLang((l) => (l === "es" ? "en" : "es"))}
+                title={lang === "es" ? "Switch to English" : "Cambiar a Español"}
+              >
+                {lang.toUpperCase()}
               </button>
               <button
                 type="button"
                 className="btn btn-outline btn-sm btn-icon-only"
-                onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
-                title={theme === "light" ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}
-                aria-label="Cambiar tema"
+                onClick={() => setTheme((th) => (th === "light" ? "dark" : "light"))}
+                aria-label="Theme"
               >
                 {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
               </button>
             </div>
 
             <div className="export-actions">
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={handleShareReport}
-                title="Compartir reporte por WhatsApp, correo, etc."
-              >
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleShareReport}>
                 <Share2 size={15} />
-                Compartir
+                {t.share}
               </button>
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
                 onClick={() => setPdfPreview(true)}
-                title="Ver vista previa del reporte PDF"
               >
                 <FileText size={15} />
-                Vista previa PDF
+                {t.pdfPreview}
               </button>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => window.print()}
-                title="Imprimir o guardar como PDF para el médico"
-              >
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => window.print()}>
                 <Printer size={15} />
-                Imprimir / PDF
+                {t.printPdf}
               </button>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={handleExportCsv}
-                title="Exportar registros a CSV (Excel)"
-              >
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleExportCsv}>
                 <Download size={15} />
-                Exportar CSV
+                {t.exportCsv}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setShowBackupModal(true)}
-                title="Respaldo JSON e importación"
               >
                 <Database size={15} />
-                Respaldo
+                {t.backup}
               </button>
             </div>
           </div>
@@ -442,7 +446,7 @@ export default function App() {
       <main className="container main-content">
         {/* Selector de módulo: Presión Arterial vs Glicemia */}
         <div className="module-switcher-wrap no-print">
-          <div className="module-switcher" role="tablist" aria-label="Módulo de salud">
+          <div className="module-switcher" role="tablist">
             <button
               type="button"
               role="tab"
@@ -454,7 +458,7 @@ export default function App() {
               }}
             >
               <HeartPulse size={16} />
-              <span>Presión Arterial</span>
+              <span>{t.tabBP}</span>
             </button>
             <button
               type="button"
@@ -467,7 +471,7 @@ export default function App() {
               }}
             >
               <Droplet size={16} />
-              <span>Glicemia</span>
+              <span>{t.tabGlucose}</span>
             </button>
           </div>
         </div>
@@ -476,20 +480,15 @@ export default function App() {
         {isLatestCrisis && !crisisDismissed && (
           <div className="alert-banner alert-crisis" role="alert">
             <div className="alert-banner-content">
-              <strong>
-                Atención: Lectura en rango de Crisis Hipertensiva (&gt;180 / &gt;120 mmHg)
-              </strong>
-              <p>
-                Si presentas síntomas como dolor de pecho, dificultad para respirar, entumecimiento o
-                alteración visual, busca atención médica de emergencia de inmediato.
-              </p>
+              <strong>{t.crisisTitle}</strong>
+              <p>{t.crisisBody}</p>
             </div>
             <button
               type="button"
               className="btn btn-sm btn-outline-light"
               onClick={() => setCrisisDismissed(true)}
             >
-              Entendido
+              {t.understood}
             </button>
           </div>
         )}
@@ -498,12 +497,23 @@ export default function App() {
           <div className="alert-banner alert-crisis" role="alert">
             <div className="alert-banner-content">
               <strong>
-                Atención: Glicemia en rango crítico ({latestGlucose.value} mg/dL —{" "}
-                {latestGlucoseCat.label})
+                {lang === "en"
+                  ? `Warning: Critical blood glucose (${latestGlucose.value} mg/dL — ${getGlucoseLabel(
+                      latestGlucoseCat.key,
+                      lang
+                    )})`
+                  : `Atención: Glicemia en rango crítico (${latestGlucose.value} mg/dL — ${getGlucoseLabel(
+                      latestGlucoseCat.key,
+                      lang
+                    )})`}
               </strong>
               <p>
                 {latestGlucoseCat.key === "severeLow"
-                  ? "Un nivel menor a 54 mg/dL requiere atención inmediata (ingiere carbohidratos de acción rápida si estás consciente y consulta a un médico)."
+                  ? lang === "en"
+                    ? "A level below 54 mg/dL requires immediate attention (take fast-acting carbs if conscious and contact a doctor)."
+                    : "Un nivel menor a 54 mg/dL requiere atención inmediata (ingiere carbohidratos de acción rápida si estás consciente y consulta a un médico)."
+                  : lang === "en"
+                  ? "A level of 250 mg/dL or higher requires prompt medical evaluation, especially with nausea, extreme thirst, or fatigue."
                   : "Un nivel igual o mayor a 250 mg/dL requiere evaluación médica pronta, especialmente si hay náuseas, sed intensa o malestar."}
               </p>
             </div>
@@ -512,7 +522,7 @@ export default function App() {
               className="btn btn-sm btn-outline-light"
               onClick={() => setCrisisDismissed(true)}
             >
-              Entendido
+              {t.understood}
             </button>
           </div>
         )}
@@ -521,33 +531,19 @@ export default function App() {
           className={`hero-banner no-print ${mobileTab !== "summary" ? "mobile-hidden" : ""}`}
         >
           <div className="hero-banner-text">
-            <h1>
-              {activeModule === "bp" ? "Control de Presión Arterial" : "Control de Glicemia"}
-            </h1>
-            <p>
-              {activeModule === "bp"
-                ? "Registra tus mediciones diarias, visualiza tu tendencia y lleva un reporte claro a tu consulta médica."
-                : "Registra tu glucosa en ayunas o postprandial, observa tu tendencia y comparte tu reporte médico."}
-            </p>
+            <h1>{activeModule === "bp" ? t.heroBPTitle : t.heroGlTitle}</h1>
+            <p>{activeModule === "bp" ? t.heroBPDesc : t.heroGlDesc}</p>
             <div className="hero-tips">
-              {activeModule === "bp" ? (
-                <>
-                  <span className="hero-tip-chip">Reposa 5 min antes</span>
-                  <span className="hero-tip-chip">Brazo a la altura del corazón</span>
-                  <span className="hero-tip-chip">Pies apoyados en el suelo</span>
-                </>
-              ) : (
-                <>
-                  <span className="hero-tip-chip">Ayunas: 8h sin calorías</span>
-                  <span className="hero-tip-chip">Postprandial: 2h tras comer</span>
-                  <span className="hero-tip-chip">Lava y seca tus manos antes</span>
-                </>
-              )}
+              {(activeModule === "bp" ? t.heroBPTips : t.heroGlTips).map((tip) => (
+                <span key={tip} className="hero-tip-chip">
+                  {tip}
+                </span>
+              ))}
             </div>
           </div>
           <img
             src="/hero-bp.jpg"
-            alt="Ilustración de control de salud"
+            alt={activeModule === "bp" ? t.heroBPTitle : t.heroGlTitle}
             className="hero-banner-img"
           />
         </section>
@@ -556,10 +552,12 @@ export default function App() {
           <>
             <section className="top-grid">
               <ReadingForm
+                lang={lang}
                 onAddReading={handleAddReading}
                 className={mobileTab !== "add" ? "mobile-hidden" : ""}
               />
               <StatsPanel
+                lang={lang}
                 allReadings={allProfileReadingsDesc}
                 rangedReadings={rangedReadingsDesc}
                 selectedRange={selectedRange}
@@ -569,11 +567,13 @@ export default function App() {
             </section>
 
             <TrendChart
+              lang={lang}
               readings={rangedReadingsAsc}
               className={mobileTab !== "summary" ? "mobile-hidden" : ""}
             />
 
             <ReadingsTable
+              lang={lang}
               readings={rangedReadingsDesc}
               onEdit={(r) => setEditingReading(r)}
               onDelete={handleDeleteReading}
@@ -581,38 +581,37 @@ export default function App() {
             />
 
             <section className={`card guide-card ${mobileTab !== "more" ? "mobile-hidden" : ""}`}>
-              <h2>Guía de Referencia (AHA / ACC &amp; OMS)</h2>
+              <h2>{t.guideBPTitle}</h2>
               <div className="guide-grid">
                 <div className="guide-item border-hypotension">
-                  <strong>Hipotensión</strong>
-                  <span>&lt; 90 o &lt; 60 mmHg</span>
+                  <strong>{getBPLabel("hypotension", lang)}</strong>
+                  <span>{lang === "en" ? "< 90 or < 60 mmHg" : "< 90 o < 60 mmHg"}</span>
                 </div>
                 <div className="guide-item border-normal">
-                  <strong>Normal</strong>
-                  <span>&lt; 120 y &lt; 80 mmHg</span>
+                  <strong>{getBPLabel("normal", lang)}</strong>
+                  <span>{lang === "en" ? "< 120 and < 80 mmHg" : "< 120 y < 80 mmHg"}</span>
                 </div>
                 <div className="guide-item border-elevated">
-                  <strong>Elevada</strong>
-                  <span>120–129 y &lt; 80 mmHg</span>
+                  <strong>{getBPLabel("elevated", lang)}</strong>
+                  <span>{lang === "en" ? "120–129 and < 80 mmHg" : "120–129 y < 80 mmHg"}</span>
                 </div>
                 <div className="guide-item border-stage1">
-                  <strong>Hipertensión Grado 1</strong>
-                  <span>130–139 o 80–89 mmHg</span>
+                  <strong>{getBPLabel("stage1", lang)}</strong>
+                  <span>{lang === "en" ? "130–139 or 80–89 mmHg" : "130–139 o 80–89 mmHg"}</span>
                 </div>
                 <div className="guide-item border-stage2">
-                  <strong>Hipertensión Grado 2</strong>
-                  <span>&ge; 140 o &ge; 90 mmHg</span>
+                  <strong>{getBPLabel("stage2", lang)}</strong>
+                  <span>{lang === "en" ? "≥ 140 or ≥ 90 mmHg" : "≥ 140 o ≥ 90 mmHg"}</span>
                 </div>
                 <div className="guide-item border-crisis">
-                  <strong>Crisis Hipertensiva</strong>
-                  <span>&gt; 180 y/o &gt; 120 mmHg</span>
+                  <strong>{getBPLabel("crisis", lang)}</strong>
+                  <span>{lang === "en" ? "> 180 and/or > 120 mmHg" : "> 180 y/o > 120 mmHg"}</span>
                 </div>
               </div>
               <p className="disclaimer">
-                Nota: Esta aplicación es una herramienta de registro personal y no sustituye el
-                diagnóstico ni el tratamiento de un profesional de la salud.{" "}
+                {t.disclaimer}{" "}
                 <a href="/privacy.html" target="_blank" rel="noopener noreferrer">
-                  Política de Privacidad
+                  {t.privacyLink}
                 </a>
               </p>
             </section>
@@ -621,10 +620,12 @@ export default function App() {
           <>
             <section className="top-grid">
               <GlucoseForm
+                lang={lang}
                 onAddGlucose={handleAddGlucose}
                 className={mobileTab !== "add" ? "mobile-hidden" : ""}
               />
               <GlucoseStatsPanel
+                lang={lang}
                 allReadings={allGlucoseDesc}
                 rangedReadings={rangedGlucoseDesc}
                 selectedRange={selectedRange}
@@ -634,18 +635,23 @@ export default function App() {
             </section>
 
             <GlucoseTrendChart
+              lang={lang}
               readings={rangedGlucoseAsc}
               className={mobileTab !== "summary" ? "mobile-hidden" : ""}
             />
 
             <GlucoseTable
+              lang={lang}
               readings={rangedGlucoseDesc}
               onEdit={(r) => setEditingGlucose(r)}
               onDelete={handleDeleteGlucose}
               className={mobileTab !== "history" ? "mobile-hidden" : ""}
             />
 
-            <GlucoseGuideCard className={mobileTab !== "more" ? "mobile-hidden" : ""} />
+            <GlucoseGuideCard
+              lang={lang}
+              className={mobileTab !== "more" ? "mobile-hidden" : ""}
+            />
           </>
         )}
 
@@ -655,27 +661,26 @@ export default function App() {
             mobileTab !== "more" ? "mobile-hidden" : ""
           }`}
         >
-          <h2>Herramientas y Reportes</h2>
+          <h2>{t.toolsTitle}</h2>
           <p className="card-subtitle">
-            Comparte o exporta tus datos de{" "}
-            {activeModule === "bp" ? "Presión Arterial" : "Glicemia"}
+            {t.toolsSub} {activeModule === "bp" ? t.tabBP : t.tabGlucose}
           </p>
           <div className="mobile-more-grid">
             <button type="button" className="btn btn-primary" onClick={handleShareReport}>
               <Share2 size={16} />
-              Compartir reporte
+              {t.shareReport}
             </button>
             <button type="button" className="btn btn-outline" onClick={() => setPdfPreview(true)}>
               <FileText size={16} />
-              Vista previa PDF
+              {t.pdfPreview}
             </button>
             <button type="button" className="btn btn-outline" onClick={() => window.print()}>
               <Printer size={16} />
-              Imprimir / PDF
+              {t.printPdf}
             </button>
             <button type="button" className="btn btn-outline" onClick={handleExportCsv}>
               <Download size={16} />
-              Exportar CSV
+              {t.exportCsv}
             </button>
             <button
               type="button"
@@ -683,7 +688,7 @@ export default function App() {
               onClick={() => setShowBackupModal(true)}
             >
               <Database size={16} />
-              Respaldo JSON
+              {t.backupJson}
             </button>
             <button
               type="button"
@@ -691,25 +696,25 @@ export default function App() {
               onClick={() => setShowProfilesModal(true)}
             >
               <Users size={16} />
-              Perfiles
+              {t.profiles}
             </button>
           </div>
           <p className="disclaimer" style={{ marginTop: "14px" }}>
             <a href="/privacy.html" target="_blank" rel="noopener noreferrer">
-              Política de Privacidad y Aviso Médico
+              {t.privacyAndMedical}
             </a>
           </p>
         </section>
       </main>
 
-      <nav className="mobile-bottom-nav no-print" aria-label="Navegación móvil">
+      <nav className="mobile-bottom-nav no-print">
         <button
           type="button"
           className={`nav-tab ${mobileTab === "summary" ? "active" : ""}`}
           onClick={() => setMobileTab("summary")}
         >
           <Activity size={20} />
-          <span>Resumen</span>
+          <span>{t.navSummary}</span>
         </button>
         <button
           type="button"
@@ -717,7 +722,7 @@ export default function App() {
           onClick={() => setMobileTab("add")}
         >
           <PlusCircle size={20} />
-          <span>Registrar</span>
+          <span>{t.navAdd}</span>
         </button>
         <button
           type="button"
@@ -725,7 +730,7 @@ export default function App() {
           onClick={() => setMobileTab("history")}
         >
           <List size={20} />
-          <span>Historial</span>
+          <span>{t.navHistory}</span>
         </button>
         <button
           type="button"
@@ -733,12 +738,13 @@ export default function App() {
           onClick={() => setMobileTab("more")}
         >
           <SlidersHorizontal size={20} />
-          <span>Más</span>
+          <span>{t.navMore}</span>
         </button>
       </nav>
 
       {showProfilesModal && (
         <ProfilesModal
+          lang={lang}
           profiles={state.profiles}
           activeProfileId={activeProfile.id}
           readings={state.readings}
@@ -751,6 +757,7 @@ export default function App() {
 
       {editingReading && (
         <EditReadingModal
+          lang={lang}
           reading={editingReading}
           onSave={handleUpdateReading}
           onClose={() => setEditingReading(null)}
@@ -759,6 +766,7 @@ export default function App() {
 
       {editingGlucose && (
         <EditGlucoseModal
+          lang={lang}
           reading={editingGlucose}
           onSave={handleUpdateGlucose}
           onClose={() => setEditingGlucose(null)}
@@ -767,6 +775,7 @@ export default function App() {
 
       {showBackupModal && (
         <BackupModal
+          lang={lang}
           onExportJson={() => exportBackupJson(state)}
           onImportJson={handleImportJson}
           onLoadDemo={handleLoadDemo}

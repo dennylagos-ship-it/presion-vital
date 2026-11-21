@@ -1,8 +1,12 @@
 import React, { useState } from "react";
 import { classifyBloodPressure, validateReading } from "../utils/classification.js";
 import { toLocalDateTimeInputValue } from "../utils/storage.js";
+import { STRINGS, getBPLabel } from "../utils/i18n.js";
 
-export default function ReadingForm({ onAddReading, className = "" }) {
+export default function ReadingForm({ onAddReading, lang = "es", className = "" }) {
+  const t = STRINGS[lang] || STRINGS.es;
+  const pulseUnit = lang === "en" ? "bpm" : "lpm";
+
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
   const [pulse, setPulse] = useState("");
@@ -24,7 +28,7 @@ export default function ReadingForm({ onAddReading, className = "" }) {
     setError("");
 
     const pulseVal = pulse.trim() === "" ? null : Number(pulse);
-    const err = validateReading(sysNum, diaNum, pulseVal, dateTime);
+    const err = validateReading(sysNum, diaNum, pulseVal, dateTime, lang);
     if (err) {
       setError(err);
       return;
@@ -50,9 +54,9 @@ export default function ReadingForm({ onAddReading, className = "" }) {
   return (
     <div className={`card form-card no-print ${className}`.trim()}>
       <div className="card-header">
-        <h2>Nuevo Registro</h2>
+        <h2>{t.newReading}</h2>
         <span className={`badge ${liveCategory ? liveCategory.badgeClass : "badge-neutral"}`}>
-          {liveCategory ? liveCategory.label : "Ingresa valores"}
+          {liveCategory ? getBPLabel(liveCategory.key, lang) : t.enterValues}
         </span>
       </div>
 
@@ -60,7 +64,7 @@ export default function ReadingForm({ onAddReading, className = "" }) {
         <div className="form-row-3">
           <div className="form-group">
             <label htmlFor="inputSystolic">
-              Sistólica <span className="unit">(mmHg)</span>
+              {t.systolic} <span className="unit">(mmHg)</span>
             </label>
             <input
               type="number"
@@ -75,7 +79,7 @@ export default function ReadingForm({ onAddReading, className = "" }) {
           </div>
           <div className="form-group">
             <label htmlFor="inputDiastolic">
-              Diastólica <span className="unit">(mmHg)</span>
+              {t.diastolic} <span className="unit">(mmHg)</span>
             </label>
             <input
               type="number"
@@ -90,7 +94,7 @@ export default function ReadingForm({ onAddReading, className = "" }) {
           </div>
           <div className="form-group">
             <label htmlFor="inputPulse">
-              Pulso <span className="unit">(lpm)</span>
+              {t.pulse} <span className="unit">({pulseUnit})</span>
             </label>
             <input
               type="number"
@@ -106,7 +110,7 @@ export default function ReadingForm({ onAddReading, className = "" }) {
 
         <div className="form-row-2">
           <div className="form-group">
-            <label htmlFor="inputDateTime">Fecha y hora</label>
+            <label htmlFor="inputDateTime">{t.dateTime}</label>
             <input
               type="datetime-local"
               id="inputDateTime"
@@ -116,30 +120,30 @@ export default function ReadingForm({ onAddReading, className = "" }) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="inputArm">Brazo</label>
+            <label htmlFor="inputArm">{t.arm}</label>
             <select id="inputArm" value={arm} onChange={(e) => setArm(e.target.value)}>
-              <option value="Izquierdo">Izquierdo</option>
-              <option value="Derecho">Derecho</option>
+              <option value="Izquierdo">{t.armLeft}</option>
+              <option value="Derecho">{t.armRight}</option>
             </select>
           </div>
         </div>
 
         <div className="form-row-2">
           <div className="form-group">
-            <label htmlFor="inputPosture">Postura</label>
+            <label htmlFor="inputPosture">{t.posture}</label>
             <select id="inputPosture" value={posture} onChange={(e) => setPosture(e.target.value)}>
-              <option value="Sentado">Sentado (en reposo)</option>
-              <option value="Acostado">Acostado</option>
-              <option value="De pie">De pie</option>
+              <option value="Sentado">{t.postureSeated}</option>
+              <option value="Acostado">{t.postureLying}</option>
+              <option value="De pie">{t.postureStanding}</option>
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="inputNotes">Notas</label>
+            <label htmlFor="inputNotes">{t.notes}</label>
             <input
               type="text"
               id="inputNotes"
               maxLength={140}
-              placeholder="Ej. En ayunas, con medicación..."
+              placeholder={t.notesPlaceholderBP}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -154,7 +158,7 @@ export default function ReadingForm({ onAddReading, className = "" }) {
 
         <div className="form-actions">
           <button type="submit" className="btn btn-primary btn-block">
-            Guardar Medición
+            {t.saveReading}
           </button>
         </div>
       </form>

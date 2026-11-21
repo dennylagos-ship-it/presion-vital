@@ -6,15 +6,10 @@ import {
   validateGlucose
 } from "../utils/classification.js";
 import { toLocalDateTimeInputValue } from "../utils/storage.js";
+import { STRINGS, getGlucoseLabel, getLocale, translateValue } from "../utils/i18n.js";
 
-const RANGES = [
-  { key: "7", label: "7 días" },
-  { key: "30", label: "30 días" },
-  { key: "90", label: "90 días" },
-  { key: "all", label: "Todo" }
-];
-
-export function GlucoseForm({ onAddGlucose, className = "" }) {
+export function GlucoseForm({ onAddGlucose, lang = "es", className = "" }) {
+  const t = STRINGS[lang] || STRINGS.es;
   const [value, setValue] = useState("");
   const [context, setContext] = useState("En ayunas");
   const [dateTime, setDateTime] = useState(() => toLocalDateTimeInputValue(new Date()));
@@ -22,12 +17,13 @@ export function GlucoseForm({ onAddGlucose, className = "" }) {
   const [error, setError] = useState("");
 
   const num = Number(value);
-  const liveCat = value !== "" && Number.isFinite(num) && num >= 20 ? classifyGlucose(num, context) : null;
+  const liveCat =
+    value !== "" && Number.isFinite(num) && num >= 20 ? classifyGlucose(num, context) : null;
 
   function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    const err = validateGlucose(num, dateTime);
+    const err = validateGlucose(num, dateTime, lang);
     if (err) {
       setError(err);
       return;
@@ -46,9 +42,9 @@ export function GlucoseForm({ onAddGlucose, className = "" }) {
   return (
     <div className={`card form-card no-print ${className}`.trim()}>
       <div className="card-header">
-        <h2>Nueva Glicemia</h2>
+        <h2>{t.newGlucose}</h2>
         <span className={`badge ${liveCat ? liveCat.badgeClass : "badge-neutral"}`}>
-          {liveCat ? liveCat.label : "Ingresa valor"}
+          {liveCat ? getGlucoseLabel(liveCat.key, lang) : t.enterValue}
         </span>
       </div>
 
@@ -56,7 +52,7 @@ export function GlucoseForm({ onAddGlucose, className = "" }) {
         <div className="form-row-2">
           <div className="form-group">
             <label htmlFor="inputGlucoseVal">
-              Glucosa <span className="unit">(mg/dL)</span>
+              {t.glucose} <span className="unit">(mg/dL)</span>
             </label>
             <input
               type="number"
@@ -70,21 +66,21 @@ export function GlucoseForm({ onAddGlucose, className = "" }) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="inputGlucoseContext">Momento</label>
+            <label htmlFor="inputGlucoseContext">{t.context}</label>
             <select
               id="inputGlucoseContext"
               value={context}
               onChange={(e) => setContext(e.target.value)}
             >
-              <option value="En ayunas">En ayunas</option>
-              <option value="Postprandial">Postprandial (2h)</option>
-              <option value="Al azar">Al azar / Otro</option>
+              <option value="En ayunas">{t.fasting}</option>
+              <option value="Postprandial">{t.postprandial}</option>
+              <option value="Al azar">{t.random}</option>
             </select>
           </div>
         </div>
 
         <div className="form-group">
-          <label htmlFor="inputGlucoseDateTime">Fecha y hora</label>
+          <label htmlFor="inputGlucoseDateTime">{t.dateTime}</label>
           <input
             type="datetime-local"
             id="inputGlucoseDateTime"
@@ -95,12 +91,12 @@ export function GlucoseForm({ onAddGlucose, className = "" }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="inputGlucoseNotes">Notas</label>
+          <label htmlFor="inputGlucoseNotes">{t.notes}</label>
           <input
             type="text"
             id="inputGlucoseNotes"
             maxLength={140}
-            placeholder="Ej. Antes de desayunar, después de cena..."
+            placeholder={t.notesPlaceholderGl}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
@@ -113,7 +109,7 @@ export function GlucoseForm({ onAddGlucose, className = "" }) {
         )}
 
         <button type="submit" className="btn btn-primary btn-block">
-          Guardar Glicemia
+          {t.saveGlucose}
         </button>
       </form>
     </div>
@@ -125,8 +121,11 @@ export function GlucoseStatsPanel({
   rangedReadings,
   selectedRange,
   onRangeChange,
+  lang = "es",
   className = ""
 }) {
+  const t = STRINGS[lang] || STRINGS.es;
+  const locale = getLocale(lang);
   const latest = allReadings[0] || null;
   const latestCat = latest ? classifyGlucose(latest.value, latest.context) : null;
 
@@ -149,16 +148,16 @@ export function GlucoseStatsPanel({
   return (
     <div className={`stats-panel ${className}`.trim()}>
       <div className="stats-toolbar no-print">
-        <h2>Resumen de Glicemia</h2>
-        <div className="range-pills" role="group" aria-label="Rango de fechas">
-          {RANGES.map((r) => (
+        <h2>{t.summaryGlucose}</h2>
+        <div className="range-pills" role="group">
+          {["7", "30", "90", "all"].map((key) => (
             <button
-              key={r.key}
+              key={key}
               type="button"
-              className={`pill ${selectedRange === r.key ? "active" : ""}`}
-              onClick={() => onRangeChange(r.key)}
+              className={`pill ${selectedRange === key ? "active" : ""}`}
+              onClick={() => onRangeChange(key)}
             >
-              {r.label}
+              {t.ranges[key]}
             </button>
           ))}
         </div>
@@ -166,16 +165,18 @@ export function GlucoseStatsPanel({
 
       <div className="kpi-grid">
         <div className="card kpi-card kpi-hero">
-          <span className="kpi-label">Última Medición</span>
+          <span className="kpi-label">{t.latestReading}</span>
           <div className="kpi-value">{latest ? `${latest.value} mg/dL` : "— mg/dL"}</div>
           <div className="kpi-sub">
             {latest && latestCat ? (
               <>
-                <span className={`badge ${latestCat.badgeClass}`}>{latestCat.label}</span>
-                <span>• {latest.context}</span>
+                <span className={`badge ${latestCat.badgeClass}`}>
+                  {getGlucoseLabel(latestCat.key, lang)}
+                </span>
+                <span>• {translateValue(latest.context, lang)}</span>
                 <span>
                   •{" "}
-                  {new Date(latest.dateTime).toLocaleString("es-ES", {
+                  {new Date(latest.dateTime).toLocaleString(locale, {
                     day: "2-digit",
                     month: "short",
                     hour: "2-digit",
@@ -184,41 +185,43 @@ export function GlucoseStatsPanel({
                 </span>
               </>
             ) : (
-              "Sin registros aún"
+              t.noReadingsYet
             )}
           </div>
         </div>
 
         <div className="card kpi-card">
-          <span className="kpi-label">Promedio del Período</span>
+          <span className="kpi-label">{t.periodAvg}</span>
           <div className="kpi-value">{avgAll != null ? `${avgAll} mg/dL` : "— mg/dL"}</div>
           <div className="kpi-sub">
             {rangedReadings.length > 0
-              ? `${rangedReadings.length} ${
-                  rangedReadings.length === 1 ? "medición" : "mediciones"
-                }`
-              : "0 mediciones en el período"}
+              ? `${rangedReadings.length} ${t.measurements}`
+              : t.noPeriodReadings}
           </div>
         </div>
 
         <div className="card kpi-card">
-          <span className="kpi-label">En Ayunas</span>
+          <span className="kpi-label">{t.fasting}</span>
           <div className="kpi-value">{avgFast != null ? `${avgFast} mg/dL` : "— mg/dL"}</div>
-          <div className="kpi-sub">{fastingList.length} mediciones</div>
+          <div className="kpi-sub">
+            {fastingList.length} {t.measurements}
+          </div>
         </div>
 
         <div className="card kpi-card">
-          <span className="kpi-label">Postprandial (2h)</span>
+          <span className="kpi-label">{t.postprandial}</span>
           <div className="kpi-value">{avgPost != null ? `${avgPost} mg/dL` : "— mg/dL"}</div>
-          <div className="kpi-sub">{postList.length} mediciones</div>
+          <div className="kpi-sub">
+            {postList.length} {t.measurements}
+          </div>
         </div>
       </div>
 
       <div className="card distribution-card">
         <div className="distribution-header">
-          <span className="kpi-label">Distribución según guías ADA / OMS</span>
+          <span className="kpi-label">{t.distADA}</span>
           <span className="kpi-sub">
-            {rangedReadings.length} {rangedReadings.length === 1 ? "registro" : "registros"}
+            {rangedReadings.length} {rangedReadings.length === 1 ? t.record : t.records}
           </span>
         </div>
 
@@ -228,6 +231,7 @@ export function GlucoseStatsPanel({
             if (!count) return null;
             const pct = Math.round((count / rangedReadings.length) * 100);
             const cat = GLUCOSE_CATEGORIES[key];
+            const lbl = getGlucoseLabel(key, lang);
             return (
               <div
                 key={key}
@@ -236,7 +240,7 @@ export function GlucoseStatsPanel({
                   width: `${((count / rangedReadings.length) * 100).toFixed(2)}%`,
                   backgroundColor: cat.color
                 }}
-                title={`${cat.label}: ${count} (${pct}%)`}
+                title={`${lbl}: ${count} (${pct}%)`}
               />
             );
           })}
@@ -244,7 +248,7 @@ export function GlucoseStatsPanel({
 
         <div className="distribution-legend">
           {rangedReadings.length === 0 ? (
-            <span>Registra mediciones para ver la distribución por categoría.</span>
+            <span>{t.emptyDist}</span>
           ) : (
             ORDERED_GLUCOSE_KEYS.map((key) => {
               const count = counts[key];
@@ -255,7 +259,7 @@ export function GlucoseStatsPanel({
                 <span key={key} className="legend-item">
                   <span className="legend-dot" style={{ background: cat.color }} />
                   <span>
-                    {cat.label}: <strong>{count}</strong> ({pct}%)
+                    {getGlucoseLabel(key, lang)}: <strong>{count}</strong> ({pct}%)
                   </span>
                 </span>
               );
@@ -267,7 +271,9 @@ export function GlucoseStatsPanel({
   );
 }
 
-export function GlucoseTrendChart({ readings, className = "" }) {
+export function GlucoseTrendChart({ readings, lang = "es", className = "" }) {
+  const t = STRINGS[lang] || STRINGS.es;
+  const locale = getLocale(lang);
   const [tooltip, setTooltip] = useState(null);
   const wrapperRef = useRef(null);
 
@@ -319,38 +325,34 @@ export function GlucoseTrendChart({ readings, className = "" }) {
     if (top < 0) top = 8;
 
     const cat = classifyGlucose(r.value, r.context);
-    const dt = new Date(r.dateTime).toLocaleString("es-ES", {
+    const dt = new Date(r.dateTime).toLocaleString(locale, {
       day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit"
     });
-    setTooltip({ left, top, dt, r, cat });
+    setTooltip({ left, top, dt, r, catLabel: getGlucoseLabel(cat.key, lang) });
   }
 
   return (
     <section className={`card chart-card ${className}`.trim()}>
       <div className="card-header">
         <div>
-          <h2>Tendencia de Glicemia</h2>
-          <p className="card-subtitle">
-            Evolución en mg/dL con banda de referencia en ayunas (70–100 mg/dL)
-          </p>
+          <h2>{t.trendGlTitle}</h2>
+          <p className="card-subtitle">{t.trendGlSub}</p>
         </div>
       </div>
 
       <div className="chart-wrapper" ref={wrapperRef}>
         {readings.length < 2 ? (
-          <div className="empty-state">
-            Registra al menos 2 mediciones de glicemia para visualizar la gráfica.
-          </div>
+          <div className="empty-state">{t.emptyChartGl}</div>
         ) : (
           <svg
             className="bp-chart"
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="xMidYMid meet"
             role="img"
-            aria-label="Gráfico de tendencia de glicemia"
+            aria-label={t.trendGlTitle}
           >
             <defs>
               <linearGradient id="glucoseAreaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -411,7 +413,7 @@ export function GlucoseTrendChart({ readings, className = "" }) {
 
             {readings.map((r, i) => {
               if (i % labelEvery !== 0 && i !== readings.length - 1) return null;
-              const label = new Date(r.dateTime).toLocaleDateString("es-ES", {
+              const label = new Date(r.dateTime).toLocaleDateString(locale, {
                 day: "2-digit",
                 month: "2-digit"
               });
@@ -475,11 +477,11 @@ export function GlucoseTrendChart({ readings, className = "" }) {
           <div className="chart-tooltip" style={{ left: tooltip.left, top: tooltip.top }}>
             <strong>{tooltip.dt}</strong>
             <br />
-            Glicemia: <b>{tooltip.r.value}</b> mg/dL
+            {t.glucose}: <b>{tooltip.r.value}</b> mg/dL
             <br />
-            Momento: <b>{tooltip.r.context}</b>
+            {t.context}: <b>{translateValue(tooltip.r.context, lang)}</b>
             <br />
-            Estado: <b>{tooltip.cat.label}</b>
+            {lang === "en" ? "Status" : "Estado"}: <b>{tooltip.catLabel}</b>
           </div>
         )}
       </div>
@@ -487,7 +489,9 @@ export function GlucoseTrendChart({ readings, className = "" }) {
   );
 }
 
-export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
+export function GlucoseTable({ readings, onEdit, onDelete, lang = "es", className = "" }) {
+  const t = STRINGS[lang] || STRINGS.es;
+  const locale = getLocale(lang);
   const [contextFilter, setContextFilter] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -498,32 +502,34 @@ export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
     return true;
   });
 
+  const subtitle = t.showingOf
+    .replace("{n}", String(filtered.length))
+    .replace("{total}", String(readings.length));
+
   return (
     <section className={`card history-card ${className}`.trim()}>
       <div className="card-header history-header">
         <div>
-          <h2>Historial de Glicemia</h2>
-          <p className="card-subtitle">
-            Mostrando {filtered.length} de {readings.length} registros del período
-          </p>
+          <h2>{t.historyGlTitle}</h2>
+          <p className="card-subtitle">{subtitle}</p>
         </div>
         <div className="history-filters no-print">
           <select
             className="select-sm"
-            aria-label="Filtrar por momento"
+            aria-label={t.allContexts}
             value={contextFilter}
             onChange={(e) => setContextFilter(e.target.value)}
           >
-            <option value="all">Todos los momentos</option>
-            <option value="En ayunas">En ayunas</option>
-            <option value="Postprandial">Postprandial (2h)</option>
-            <option value="Al azar">Al azar / Otro</option>
+            <option value="all">{t.allContexts}</option>
+            <option value="En ayunas">{t.fasting}</option>
+            <option value="Postprandial">{t.postprandial}</option>
+            <option value="Al azar">{t.random}</option>
           </select>
           <input
             type="search"
             className="input-sm"
-            placeholder="Buscar en notas..."
-            aria-label="Buscar en notas"
+            placeholder={t.searchNotes}
+            aria-label={t.searchNotes}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -534,25 +540,25 @@ export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
         <table className="readings-table">
           <thead>
             <tr>
-              <th>Fecha y hora</th>
-              <th>Glicemia</th>
-              <th>Momento</th>
-              <th>Clasificación</th>
-              <th>Notas</th>
-              <th className="no-print">Acciones</th>
+              <th>{t.dateTime}</th>
+              <th>{t.glucose}</th>
+              <th>{t.context}</th>
+              <th>{t.colClass}</th>
+              <th>{t.colNotes}</th>
+              <th className="no-print">{t.colActions}</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="table-empty">
-                  No hay mediciones de glicemia que coincidan con el filtro actual.
+                  {t.noMatchingGl}
                 </td>
               </tr>
             ) : (
               filtered.map((r) => {
                 const cat = classifyGlucose(r.value, r.context);
-                const dt = new Date(r.dateTime).toLocaleString("es-ES", {
+                const dt = new Date(r.dateTime).toLocaleString(locale, {
                   year: "numeric",
                   month: "short",
                   day: "2-digit",
@@ -565,9 +571,11 @@ export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
                     <td className="bp-reading-cell">
                       {r.value} <span className="unit">mg/dL</span>
                     </td>
-                    <td>{r.context}</td>
+                    <td>{translateValue(r.context, lang)}</td>
                     <td>
-                      <span className={`badge ${cat.badgeClass}`}>{cat.label}</span>
+                      <span className={`badge ${cat.badgeClass}`}>
+                        {getGlucoseLabel(cat.key, lang)}
+                      </span>
                     </td>
                     <td>{r.notes ? r.notes : <span className="unit">—</span>}</td>
                     <td className="no-print">
@@ -577,14 +585,14 @@ export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
                           className="btn btn-icon-text"
                           onClick={() => onEdit(r)}
                         >
-                          Editar
+                          {t.edit}
                         </button>
                         <button
                           type="button"
                           className="btn btn-danger-text"
                           onClick={() => onDelete(r.id)}
                         >
-                          Eliminar
+                          {t.del}
                         </button>
                       </div>
                     </td>
@@ -598,11 +606,11 @@ export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
 
       <div className="mobile-readings-list">
         {filtered.length === 0 ? (
-          <div className="empty-state">No hay mediciones de glicemia registradas.</div>
+          <div className="empty-state">{t.noMatchingGl}</div>
         ) : (
           filtered.map((r) => {
             const cat = classifyGlucose(r.value, r.context);
-            const dt = new Date(r.dateTime).toLocaleString("es-ES", {
+            const dt = new Date(r.dateTime).toLocaleString(locale, {
               day: "2-digit",
               month: "short",
               hour: "2-digit",
@@ -614,23 +622,29 @@ export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
                   <div className="mobile-reading-bp">
                     {r.value} <span className="unit">mg/dL</span>
                   </div>
-                  <span className={`badge ${cat.badgeClass}`}>{cat.label}</span>
+                  <span className={`badge ${cat.badgeClass}`}>
+                    {getGlucoseLabel(cat.key, lang)}
+                  </span>
                 </div>
                 <div className="mobile-reading-meta">
                   <span>{dt}</span>
-                  <span>• {r.context}</span>
+                  <span>• {translateValue(r.context, lang)}</span>
                 </div>
-                {r.notes && <div className="mobile-reading-meta">Nota: {r.notes}</div>}
+                {r.notes && (
+                  <div className="mobile-reading-meta">
+                    {t.notes}: {r.notes}
+                  </div>
+                )}
                 <div className="mobile-reading-actions no-print">
                   <button type="button" className="btn btn-icon-text" onClick={() => onEdit(r)}>
-                    Editar
+                    {t.edit}
                   </button>
                   <button
                     type="button"
                     className="btn btn-danger-text"
                     onClick={() => onDelete(r.id)}
                   >
-                    Eliminar
+                    {t.del}
                   </button>
                 </div>
               </article>
@@ -642,7 +656,8 @@ export function GlucoseTable({ readings, onEdit, onDelete, className = "" }) {
   );
 }
 
-export function EditGlucoseModal({ reading, onSave, onClose }) {
+export function EditGlucoseModal({ reading, onSave, onClose, lang = "es" }) {
+  const t = STRINGS[lang] || STRINGS.es;
   const [value, setValue] = useState(String(reading.value));
   const [context, setContext] = useState(reading.context);
   const [dateTime, setDateTime] = useState(reading.dateTime);
@@ -653,7 +668,7 @@ export function EditGlucoseModal({ reading, onSave, onClose }) {
     e.preventDefault();
     setError("");
     const num = Number(value);
-    const err = validateGlucose(num, dateTime);
+    const err = validateGlucose(num, dateTime, lang);
     if (err) {
       setError(err);
       return;
@@ -671,8 +686,8 @@ export function EditGlucoseModal({ reading, onSave, onClose }) {
     >
       <div className="modal">
         <div className="modal-header">
-          <h3 id="editGlucoseTitle">Editar Glicemia</h3>
-          <button type="button" className="btn-close" onClick={onClose} aria-label="Cerrar">
+          <h3 id="editGlucoseTitle">{t.editGlucoseTitle}</h3>
+          <button type="button" className="btn-close" onClick={onClose} aria-label="Close">
             &times;
           </button>
         </div>
@@ -680,7 +695,7 @@ export function EditGlucoseModal({ reading, onSave, onClose }) {
           <form onSubmit={handleSubmit}>
             <div className="form-row-2">
               <div className="form-group">
-                <label htmlFor="editGlVal">Glucosa (mg/dL)</label>
+                <label htmlFor="editGlVal">{t.glucose} (mg/dL)</label>
                 <input
                   type="number"
                   id="editGlVal"
@@ -692,20 +707,20 @@ export function EditGlucoseModal({ reading, onSave, onClose }) {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="editGlCtx">Momento</label>
+                <label htmlFor="editGlCtx">{t.context}</label>
                 <select
                   id="editGlCtx"
                   value={context}
                   onChange={(e) => setContext(e.target.value)}
                 >
-                  <option value="En ayunas">En ayunas</option>
-                  <option value="Postprandial">Postprandial (2h)</option>
-                  <option value="Al azar">Al azar / Otro</option>
+                  <option value="En ayunas">{t.fasting}</option>
+                  <option value="Postprandial">{t.postprandial}</option>
+                  <option value="Al azar">{t.random}</option>
                 </select>
               </div>
             </div>
             <div className="form-group">
-              <label htmlFor="editGlDt">Fecha y hora</label>
+              <label htmlFor="editGlDt">{t.dateTime}</label>
               <input
                 type="datetime-local"
                 id="editGlDt"
@@ -715,7 +730,7 @@ export function EditGlucoseModal({ reading, onSave, onClose }) {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="editGlNotes">Notas</label>
+              <label htmlFor="editGlNotes">{t.notes}</label>
               <input
                 type="text"
                 id="editGlNotes"
@@ -727,10 +742,10 @@ export function EditGlucoseModal({ reading, onSave, onClose }) {
             {error && <p className="form-error">{error}</p>}
             <div className="modal-footer-actions">
               <button type="button" className="btn btn-outline" onClick={onClose}>
-                Cancelar
+                {t.cancel}
               </button>
               <button type="submit" className="btn btn-primary">
-                Guardar Cambios
+                {t.saveChanges}
               </button>
             </div>
           </form>
@@ -740,39 +755,43 @@ export function EditGlucoseModal({ reading, onSave, onClose }) {
   );
 }
 
-export function GlucoseGuideCard({ className = "" }) {
+export function GlucoseGuideCard({ lang = "es", className = "" }) {
+  const t = STRINGS[lang] || STRINGS.es;
+  const isEn = lang === "en";
   return (
     <section className={`card guide-card ${className}`.trim()}>
-      <h2>Guía de Referencia de Glicemia (ADA / OMS)</h2>
+      <h2>{t.guideGlTitle}</h2>
       <div className="guide-grid">
         <div className="guide-item border-hypotension">
-          <strong>Hipoglucemia</strong>
-          <span>&lt; 70 mg/dL (severa &lt; 54)</span>
+          <strong>{getGlucoseLabel("low", lang)}</strong>
+          <span>{isEn ? "< 70 mg/dL (severe < 54)" : "< 70 mg/dL (severa < 54)"}</span>
         </div>
         <div className="guide-item border-normal">
-          <strong>Normal (Ayunas)</strong>
+          <strong>{isEn ? "Normal (Fasting)" : "Normal (Ayunas)"}</strong>
           <span>70 – 99 mg/dL</span>
         </div>
         <div className="guide-item border-normal">
-          <strong>Normal (Postprandial 2h)</strong>
+          <strong>{isEn ? "Normal (Post-meal 2h)" : "Normal (Postprandial 2h)"}</strong>
           <span>70 – 139 mg/dL</span>
         </div>
         <div className="guide-item border-elevated">
-          <strong>Prediabetes / Elevada</strong>
-          <span>Ayunas 100–125 · Post 140–199</span>
+          <strong>{getGlucoseLabel("elevated", lang)}</strong>
+          <span>{isEn ? "Fasting 100–125 · Post 140–199" : "Ayunas 100–125 · Post 140–199"}</span>
         </div>
         <div className="guide-item border-stage2">
-          <strong>Hiperglucemia</strong>
-          <span>Ayunas &ge; 126 · Post &ge; 200</span>
+          <strong>{getGlucoseLabel("high", lang)}</strong>
+          <span>{isEn ? "Fasting ≥ 126 · Post ≥ 200" : "Ayunas ≥ 126 · Post ≥ 200"}</span>
         </div>
         <div className="guide-item border-crisis">
-          <strong>Hiperglucemia Severa</strong>
+          <strong>{getGlucoseLabel("severeHigh", lang)}</strong>
           <span>&ge; 250 mg/dL</span>
         </div>
       </div>
       <p className="disclaimer">
-        Nota: Esta aplicación es una herramienta de registro personal y no sustituye el diagnóstico
-        ni el tratamiento de un profesional de la salud.
+        {t.disclaimer}{" "}
+        <a href="/privacy.html" target="_blank" rel="noopener noreferrer">
+          {t.privacyLink}
+        </a>
       </p>
     </section>
   );

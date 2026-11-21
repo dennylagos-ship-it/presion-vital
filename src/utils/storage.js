@@ -1,4 +1,5 @@
 import { classifyBloodPressure, classifyGlucose } from "./classification.js";
+import { getBPLabel, getGlucoseLabel, getLocale, translateValue } from "./i18n.js";
 
 const STORAGE_KEY = "bp_control_app_v1";
 
@@ -77,25 +78,18 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-export function exportReadingsToCsv(profile, readings) {
-  const csvContent = buildCsvContent(profile, readings);
+export function exportReadingsToCsv(profile, readings, lang = "es") {
+  const csvContent = buildCsvContent(profile, readings, lang);
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const safeName = profile.name.toLowerCase().replace(/[^a-z0-9]+/gi, "-");
-  triggerDownload(blob, `presion-arterial-${safeName}.csv`);
+  triggerDownload(blob, `${lang === "en" ? "blood-pressure" : "presion-arterial"}-${safeName}.csv`);
 }
 
-function buildCsvContent(profile, readings) {
-  const headers = [
-    "Perfil",
-    "Fecha y Hora",
-    "Sistolica (mmHg)",
-    "Diastolica (mmHg)",
-    "Pulso (lpm)",
-    "Clasificacion",
-    "Brazo",
-    "Postura",
-    "Notas"
-  ];
+function buildCsvContent(profile, readings, lang = "es") {
+  const isEn = lang === "en";
+  const headers = isEn
+    ? ["Profile", "Date & Time", "Systolic (mmHg)", "Diastolic (mmHg)", "Pulse (bpm)", "Category", "Arm", "Posture", "Notes"]
+    : ["Perfil", "Fecha y Hora", "Sistolica (mmHg)", "Diastolica (mmHg)", "Pulso (lpm)", "Clasificacion", "Brazo", "Postura", "Notas"];
 
   const escapeCsv = (val) => {
     const str = String(val ?? "").replace(/"/g, '""');
@@ -104,16 +98,16 @@ function buildCsvContent(profile, readings) {
 
   const rows = readings.map((r) => {
     const cat = classifyBloodPressure(r.systolic, r.diastolic);
-    const dt = new Date(r.dateTime).toLocaleString("es-ES");
+    const dt = new Date(r.dateTime).toLocaleString(getLocale(lang));
     return [
       escapeCsv(profile.name),
       escapeCsv(dt),
       r.systolic,
       r.diastolic,
       r.pulse != null ? r.pulse : "",
-      escapeCsv(cat.label),
-      escapeCsv(r.arm),
-      escapeCsv(r.posture),
+      escapeCsv(getBPLabel(cat.key, lang)),
+      escapeCsv(translateValue(r.arm, lang)),
+      escapeCsv(translateValue(r.posture, lang)),
       escapeCsv(r.notes || "")
     ].join(",");
   });
@@ -121,30 +115,32 @@ function buildCsvContent(profile, readings) {
   return "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
 }
 
-export function buildShareableReportText(profile, rangeLabel, readings) {
+export function buildShareableReportText(profile, rangeLabel, readings, lang = "es") {
+  const isEn = lang === "en";
   const count = readings.length;
   const avgSys = Math.round(readings.reduce((s, r) => s + r.systolic, 0) / count);
   const avgDia = Math.round(readings.reduce((s, r) => s + r.diastolic, 0) / count);
   const avgCat = classifyBloodPressure(avgSys, avgDia);
   const latest = readings[0];
   const latestCat = classifyBloodPressure(latest.systolic, latest.diastolic);
+  const pulseUnit = isEn ? "bpm" : "lpm";
 
   const lines = [
-    `Reporte de Presión Arterial — PresiónVital`,
-    `Paciente: ${profile.name}${profile.age ? ` (${profile.age} años)` : ""}`,
-    profile.notes ? `Notas médicas: ${profile.notes}` : null,
-    `Período: ${rangeLabel} (${count} mediciones)`,
+    isEn ? `Blood Pressure Report — PresiónVital` : `Reporte de Presión Arterial — PresiónVital`,
+    `${isEn ? "Patient" : "Paciente"}: ${profile.name}${profile.age ? ` (${profile.age} ${isEn ? "yrs" : "años"})` : ""}`,
+    profile.notes ? `${isEn ? "Medical notes" : "Notas médicas"}: ${profile.notes}` : null,
+    `${isEn ? "Period" : "Período"}: ${rangeLabel} (${count} ${isEn ? "readings" : "mediciones"})`,
     ``,
-    `Última medición: ${latest.systolic}/${latest.diastolic} mmHg${
-      latest.pulse != null ? ` · ${latest.pulse} lpm` : ""
-    } (${latestCat.label})`,
-    `Promedio del período: ${avgSys}/${avgDia} mmHg (${avgCat.label})`,
+    `${isEn ? "Latest reading" : "Última medición"}: ${latest.systolic}/${latest.diastolic} mmHg${
+      latest.pulse != null ? ` · ${latest.pulse} ${pulseUnit}` : ""
+    } (${getBPLabel(latestCat.key, lang)})`,
+    `${isEn ? "Period average" : "Promedio del período"}: ${avgSys}/${avgDia} mmHg (${getBPLabel(avgCat.key, lang)})`,
     ``,
-    `Últimos registros:`
+    isEn ? `Recent readings:` : `Últimos registros:`
   ].filter((l) => l !== null);
 
   readings.slice(0, 7).forEach((r) => {
-    const dt = new Date(r.dateTime).toLocaleString("es-ES", {
+    const dt = new Date(r.dateTime).toLocaleString(getLocale(lang), {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -152,33 +148,32 @@ export function buildShareableReportText(profile, rangeLabel, readings) {
     });
     const cat = classifyBloodPressure(r.systolic, r.diastolic);
     lines.push(
-      `• ${dt}: ${r.systolic}/${r.diastolic} mmHg${r.pulse != null ? ` (${r.pulse} lpm)` : ""} — ${cat.label}`
+      `• ${dt}: ${r.systolic}/${r.diastolic} mmHg${r.pulse != null ? ` (${r.pulse} ${pulseUnit})` : ""} — ${getBPLabel(cat.key, lang)}`
     );
   });
 
   return lines.join("\n");
 }
 
-export async function shareReport(profile, rangeLabel, readings) {
-  const text = buildShareableReportText(profile, rangeLabel, readings);
+export async function shareReport(profile, rangeLabel, readings, lang = "es") {
+  const text = buildShareableReportText(profile, rangeLabel, readings, lang);
   const safeName = profile.name.toLowerCase().replace(/[^a-z0-9]+/gi, "-");
-  const csvFile = new File([buildCsvContent(profile, readings)], `presion-arterial-${safeName}.csv`, {
-    type: "text/csv"
-  });
+  const csvFile = new File(
+    [buildCsvContent(profile, readings, lang)],
+    `${lang === "en" ? "blood-pressure" : "presion-arterial"}-${safeName}.csv`,
+    { type: "text/csv" }
+  );
 
   if (navigator.share) {
     try {
+      const title =
+        lang === "en"
+          ? `Blood Pressure Report — ${profile.name}`
+          : `Reporte de Presión Arterial — ${profile.name}`;
       if (navigator.canShare && navigator.canShare({ files: [csvFile] })) {
-        await navigator.share({
-          title: `Reporte de Presión Arterial — ${profile.name}`,
-          text,
-          files: [csvFile]
-        });
+        await navigator.share({ title, text, files: [csvFile] });
       } else {
-        await navigator.share({
-          title: `Reporte de Presión Arterial — ${profile.name}`,
-          text
-        });
+        await navigator.share({ title, text });
       }
       return { method: "share" };
     } catch (err) {
@@ -240,19 +235,22 @@ export function generateDemoReadings(profileId) {
   });
 }
 
-function buildGlucoseCsvContent(profile, readings) {
-  const headers = ["Perfil", "Fecha y Hora", "Glicemia (mg/dL)", "Momento", "Clasificacion", "Notas"];
+function buildGlucoseCsvContent(profile, readings, lang = "es") {
+  const isEn = lang === "en";
+  const headers = isEn
+    ? ["Profile", "Date & Time", "Glucose (mg/dL)", "Timing", "Category", "Notes"]
+    : ["Perfil", "Fecha y Hora", "Glicemia (mg/dL)", "Momento", "Clasificacion", "Notas"];
   const escapeCsv = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
 
   const rows = readings.map((r) => {
     const cat = classifyGlucose(r.value, r.context);
-    const dt = new Date(r.dateTime).toLocaleString("es-ES");
+    const dt = new Date(r.dateTime).toLocaleString(getLocale(lang));
     return [
       escapeCsv(profile.name),
       escapeCsv(dt),
       r.value,
-      escapeCsv(r.context),
-      escapeCsv(cat.label),
+      escapeCsv(translateValue(r.context, lang)),
+      escapeCsv(getGlucoseLabel(cat.key, lang)),
       escapeCsv(r.notes || "")
     ].join(",");
   });
@@ -260,61 +258,61 @@ function buildGlucoseCsvContent(profile, readings) {
   return "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
 }
 
-export function exportGlucoseToCsv(profile, readings) {
-  const csvContent = buildGlucoseCsvContent(profile, readings);
+export function exportGlucoseToCsv(profile, readings, lang = "es") {
+  const csvContent = buildGlucoseCsvContent(profile, readings, lang);
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const safeName = profile.name.toLowerCase().replace(/[^a-z0-9]+/gi, "-");
-  triggerDownload(blob, `glicemia-${safeName}.csv`);
+  triggerDownload(blob, `${lang === "en" ? "blood-glucose" : "glicemia"}-${safeName}.csv`);
 }
 
-export async function shareGlucoseReport(profile, rangeLabel, readings) {
+export async function shareGlucoseReport(profile, rangeLabel, readings, lang = "es") {
+  const isEn = lang === "en";
   const count = readings.length;
   const avg = Math.round(readings.reduce((s, r) => s + r.value, 0) / count);
   const latest = readings[0];
   const latestCat = classifyGlucose(latest.value, latest.context);
 
   const lines = [
-    `Reporte de Glicemia — PresiónVital`,
-    `Paciente: ${profile.name}${profile.age ? ` (${profile.age} años)` : ""}`,
-    profile.notes ? `Notas médicas: ${profile.notes}` : null,
-    `Período: ${rangeLabel} (${count} mediciones)`,
+    isEn ? `Blood Glucose Report — PresiónVital` : `Reporte de Glicemia — PresiónVital`,
+    `${isEn ? "Patient" : "Paciente"}: ${profile.name}${profile.age ? ` (${profile.age} ${isEn ? "yrs" : "años"})` : ""}`,
+    profile.notes ? `${isEn ? "Medical notes" : "Notas médicas"}: ${profile.notes}` : null,
+    `${isEn ? "Period" : "Período"}: ${rangeLabel} (${count} ${isEn ? "readings" : "mediciones"})`,
     ``,
-    `Última medición: ${latest.value} mg/dL (${latest.context} · ${latestCat.label})`,
-    `Promedio del período: ${avg} mg/dL`,
+    `${isEn ? "Latest reading" : "Última medición"}: ${latest.value} mg/dL (${translateValue(latest.context, lang)} · ${getGlucoseLabel(latestCat.key, lang)})`,
+    `${isEn ? "Period average" : "Promedio del período"}: ${avg} mg/dL`,
     ``,
-    `Últimos registros:`
+    isEn ? `Recent readings:` : `Últimos registros:`
   ].filter((l) => l !== null);
 
   readings.slice(0, 7).forEach((r) => {
-    const dt = new Date(r.dateTime).toLocaleString("es-ES", {
+    const dt = new Date(r.dateTime).toLocaleString(getLocale(lang), {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit"
     });
     const cat = classifyGlucose(r.value, r.context);
-    lines.push(`• ${dt}: ${r.value} mg/dL (${r.context}) — ${cat.label}`);
+    lines.push(
+      `• ${dt}: ${r.value} mg/dL (${translateValue(r.context, lang)}) — ${getGlucoseLabel(cat.key, lang)}`
+    );
   });
 
   const text = lines.join("\n");
   const safeName = profile.name.toLowerCase().replace(/[^a-z0-9]+/gi, "-");
-  const csvFile = new File([buildGlucoseCsvContent(profile, readings)], `glicemia-${safeName}.csv`, {
-    type: "text/csv"
-  });
+  const csvFile = new File(
+    [buildGlucoseCsvContent(profile, readings, lang)],
+    `${lang === "en" ? "blood-glucose" : "glicemia"}-${safeName}.csv`,
+    { type: "text/csv" }
+  );
 
   if (navigator.share) {
     try {
+      const title =
+        lang === "en" ? `Blood Glucose Report — ${profile.name}` : `Reporte de Glicemia — ${profile.name}`;
       if (navigator.canShare && navigator.canShare({ files: [csvFile] })) {
-        await navigator.share({
-          title: `Reporte de Glicemia — ${profile.name}`,
-          text,
-          files: [csvFile]
-        });
+        await navigator.share({ title, text, files: [csvFile] });
       } else {
-        await navigator.share({
-          title: `Reporte de Glicemia — ${profile.name}`,
-          text
-        });
+        await navigator.share({ title, text });
       }
       return { method: "share" };
     } catch (err) {

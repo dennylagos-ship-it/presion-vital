@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { validateReading } from "../utils/classification.js";
+import { STRINGS } from "../utils/i18n.js";
 
 export function ProfilesModal({
   profiles,
@@ -8,8 +9,10 @@ export function ProfilesModal({
   onSelectProfile,
   onCreateProfile,
   onDeleteProfile,
-  onClose
+  onClose,
+  lang = "es"
 }) {
+  const t = STRINGS[lang] || STRINGS.es;
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [notes, setNotes] = useState("");
@@ -37,8 +40,8 @@ export function ProfilesModal({
     >
       <div className="modal">
         <div className="modal-header">
-          <h3 id="profilesModalTitle">Perfiles de Usuario</h3>
-          <button type="button" className="btn-close" onClick={onClose} aria-label="Cerrar">
+          <h3 id="profilesModalTitle">{t.profilesModalTitle}</h3>
+          <button type="button" className="btn-close" onClick={onClose} aria-label="Close">
             &times;
           </button>
         </div>
@@ -51,9 +54,14 @@ export function ProfilesModal({
                 <div key={p.id} className={`profile-item ${isActive ? "active-profile" : ""}`}>
                   <div>
                     <strong>{p.name}</strong>
-                    {p.age ? <span className="unit"> ({p.age} años)</span> : null}
+                    {p.age ? (
+                      <span className="unit">
+                        {" "}
+                        ({p.age} {t.years})
+                      </span>
+                    ) : null}
                     <div className="profile-meta">
-                      {count} {count === 1 ? "medición" : "mediciones"}
+                      {count} {count === 1 ? t.record : t.records}
                       {p.notes ? ` · ${p.notes}` : ""}
                     </div>
                   </div>
@@ -64,7 +72,7 @@ export function ProfilesModal({
                         className="btn btn-outline btn-sm"
                         onClick={() => onSelectProfile(p.id)}
                       >
-                        Usar
+                        {t.use}
                       </button>
                     )}
                     {profiles.length > 1 && (
@@ -73,7 +81,7 @@ export function ProfilesModal({
                         className="btn btn-danger-text"
                         onClick={() => onDeleteProfile(p)}
                       >
-                        Eliminar
+                        {t.del}
                       </button>
                     )}
                   </div>
@@ -83,47 +91,47 @@ export function ProfilesModal({
           </div>
 
           <hr className="divider" />
-          <h4>Agregar nuevo perfil</h4>
+          <h4>{t.addProfile}</h4>
           <form onSubmit={handleSubmit}>
             <div className="form-row-2">
               <div className="form-group">
-                <label htmlFor="profileNameInput">Nombre</label>
+                <label htmlFor="profileNameInput">{t.name}</label>
                 <input
                   type="text"
                   id="profileNameInput"
                   maxLength={40}
-                  placeholder="Ej. Mamá, Juan..."
+                  placeholder={lang === "en" ? "e.g., Mom, John..." : "Ej. Mamá, Juan..."}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="profileAgeInput">Edad (opcional)</label>
+                <label htmlFor="profileAgeInput">{t.ageOpt}</label>
                 <input
                   type="number"
                   id="profileAgeInput"
                   min="1"
                   max="120"
-                  placeholder="Ej. 58"
+                  placeholder="58"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
                 />
               </div>
             </div>
             <div className="form-group">
-              <label htmlFor="profileNotesInput">Notas médicas / medicación (opcional)</label>
+              <label htmlFor="profileNotesInput">{t.medNotesOpt}</label>
               <input
                 type="text"
                 id="profileNotesInput"
                 maxLength={120}
-                placeholder="Ej. Losartán 50mg cada mañana"
+                placeholder={lang === "en" ? "e.g., Losartan 50mg daily" : "Ej. Losartán 50mg cada mañana"}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
             </div>
             <button type="submit" className="btn btn-primary">
-              Crear Perfil
+              {t.createProfile}
             </button>
           </form>
         </div>
@@ -132,7 +140,8 @@ export function ProfilesModal({
   );
 }
 
-export function EditReadingModal({ reading, onSave, onClose }) {
+export function EditReadingModal({ reading, onSave, onClose, lang = "es" }) {
+  const t = STRINGS[lang] || STRINGS.es;
   const [systolic, setSystolic] = useState(String(reading.systolic));
   const [diastolic, setDiastolic] = useState(String(reading.diastolic));
   const [pulse, setPulse] = useState(reading.pulse != null ? String(reading.pulse) : "");
@@ -148,7 +157,7 @@ export function EditReadingModal({ reading, onSave, onClose }) {
     const sysNum = Number(systolic);
     const diaNum = Number(diastolic);
     const pulseVal = pulse.trim() === "" ? null : Number(pulse);
-    const err = validateReading(sysNum, diaNum, pulseVal, dateTime);
+    const err = validateReading(sysNum, diaNum, pulseVal, dateTime, lang);
     if (err) {
       setError(err);
       return;
@@ -175,8 +184,8 @@ export function EditReadingModal({ reading, onSave, onClose }) {
     >
       <div className="modal">
         <div className="modal-header">
-          <h3 id="editModalTitle">Editar Medición</h3>
-          <button type="button" className="btn-close" onClick={onClose} aria-label="Cerrar">
+          <h3 id="editModalTitle">{t.editReadingTitle}</h3>
+          <button type="button" className="btn-close" onClick={onClose} aria-label="Close">
             &times;
           </button>
         </div>
@@ -184,7 +193,7 @@ export function EditReadingModal({ reading, onSave, onClose }) {
           <form onSubmit={handleSubmit}>
             <div className="form-row-3">
               <div className="form-group">
-                <label htmlFor="editSystolic">Sistólica</label>
+                <label htmlFor="editSystolic">{t.systolic}</label>
                 <input
                   type="number"
                   id="editSystolic"
@@ -196,7 +205,7 @@ export function EditReadingModal({ reading, onSave, onClose }) {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="editDiastolic">Diastólica</label>
+                <label htmlFor="editDiastolic">{t.diastolic}</label>
                 <input
                   type="number"
                   id="editDiastolic"
@@ -208,7 +217,7 @@ export function EditReadingModal({ reading, onSave, onClose }) {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="editPulse">Pulso</label>
+                <label htmlFor="editPulse">{t.pulse}</label>
                 <input
                   type="number"
                   id="editPulse"
@@ -221,7 +230,7 @@ export function EditReadingModal({ reading, onSave, onClose }) {
             </div>
             <div className="form-row-2">
               <div className="form-group">
-                <label htmlFor="editDateTime">Fecha y hora</label>
+                <label htmlFor="editDateTime">{t.dateTime}</label>
                 <input
                   type="datetime-local"
                   id="editDateTime"
@@ -231,28 +240,28 @@ export function EditReadingModal({ reading, onSave, onClose }) {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="editArm">Brazo</label>
+                <label htmlFor="editArm">{t.arm}</label>
                 <select id="editArm" value={arm} onChange={(e) => setArm(e.target.value)}>
-                  <option value="Izquierdo">Izquierdo</option>
-                  <option value="Derecho">Derecho</option>
+                  <option value="Izquierdo">{t.armLeft}</option>
+                  <option value="Derecho">{t.armRight}</option>
                 </select>
               </div>
             </div>
             <div className="form-row-2">
               <div className="form-group">
-                <label htmlFor="editPosture">Postura</label>
+                <label htmlFor="editPosture">{t.posture}</label>
                 <select
                   id="editPosture"
                   value={posture}
                   onChange={(e) => setPosture(e.target.value)}
                 >
-                  <option value="Sentado">Sentado (en reposo)</option>
-                  <option value="Acostado">Acostado</option>
-                  <option value="De pie">De pie</option>
+                  <option value="Sentado">{t.postureSeated}</option>
+                  <option value="Acostado">{t.postureLying}</option>
+                  <option value="De pie">{t.postureStanding}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="editNotes">Notas</label>
+                <label htmlFor="editNotes">{t.notes}</label>
                 <input
                   type="text"
                   id="editNotes"
@@ -265,10 +274,10 @@ export function EditReadingModal({ reading, onSave, onClose }) {
             {error && <p className="form-error">{error}</p>}
             <div className="modal-footer-actions">
               <button type="button" className="btn btn-outline" onClick={onClose}>
-                Cancelar
+                {t.cancel}
               </button>
               <button type="submit" className="btn btn-primary">
-                Guardar Cambios
+                {t.saveChanges}
               </button>
             </div>
           </form>
@@ -278,7 +287,9 @@ export function EditReadingModal({ reading, onSave, onClose }) {
   );
 }
 
-export function BackupModal({ onExportJson, onImportJson, onLoadDemo, onClose }) {
+export function BackupModal({ onExportJson, onImportJson, onLoadDemo, onClose, lang = "es" }) {
+  const t = STRINGS[lang] || STRINGS.es;
+
   function handleFileChange(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -287,15 +298,25 @@ export function BackupModal({ onExportJson, onImportJson, onLoadDemo, onClose })
       try {
         const imported = JSON.parse(reader.result);
         if (!imported || !Array.isArray(imported.profiles) || !Array.isArray(imported.readings)) {
-          alert("El archivo JSON no tiene un formato válido de PresiónVital.");
+          alert(
+            lang === "en"
+              ? "Invalid PresiónVital JSON backup file."
+              : "El archivo JSON no tiene un formato válido de PresiónVital."
+          );
           return;
         }
-        if (!confirm("Esto reemplazará los datos actuales con el respaldo importado. ¿Continuar?")) {
+        if (
+          !confirm(
+            lang === "en"
+              ? "This will replace current data with the imported backup. Continue?"
+              : "Esto reemplazará los datos actuales con el respaldo importado. ¿Continuar?"
+          )
+        ) {
           return;
         }
         onImportJson(imported);
       } catch {
-        alert("No se pudo leer el archivo JSON.");
+        alert(lang === "en" ? "Could not read JSON file." : "No se pudo leer el archivo JSON.");
       }
     };
     reader.readAsText(file);
@@ -312,34 +333,28 @@ export function BackupModal({ onExportJson, onImportJson, onLoadDemo, onClose })
     >
       <div className="modal">
         <div className="modal-header">
-          <h3 id="backupModalTitle">Respaldo y Datos</h3>
-          <button type="button" className="btn-close" onClick={onClose} aria-label="Cerrar">
+          <h3 id="backupModalTitle">{t.backupModalTitle}</h3>
+          <button type="button" className="btn-close" onClick={onClose} aria-label="Close">
             &times;
           </button>
         </div>
         <div className="modal-body">
-          <p className="modal-desc">
-            Tus datos se guardan localmente en este navegador. Exporta un respaldo JSON para guardar
-            una copia segura o transferir tus registros a otro dispositivo.
-          </p>
+          <p className="modal-desc">{t.backupModalDesc}</p>
           <div className="backup-actions-grid">
             <button type="button" className="btn btn-primary" onClick={onExportJson}>
-              Descargar Respaldo JSON
+              {t.downloadJson}
             </button>
             <label className="btn btn-outline file-upload-btn">
-              Importar Respaldo JSON
+              {t.importJson}
               <input type="file" accept=".json,application/json" hidden onChange={handleFileChange} />
             </label>
           </div>
           <hr className="divider" />
           <div>
-            <h4>Datos de demostración</h4>
-            <p className="modal-desc">
-              ¿Quieres probar los gráficos y reportes? Puedes cargar 14 registros de ejemplo en el
-              perfil activo.
-            </p>
+            <h4>{t.demoTitle}</h4>
+            <p className="modal-desc">{t.demoDesc}</p>
             <button type="button" className="btn btn-outline btn-sm" onClick={onLoadDemo}>
-              Cargar datos de ejemplo
+              {t.loadDemo}
             </button>
           </div>
         </div>

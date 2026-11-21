@@ -1,5 +1,6 @@
 import React from "react";
 import { CATEGORIES, ORDERED_CATEGORY_KEYS, classifyBloodPressure } from "../utils/classification.js";
+import { STRINGS, getBPLabel, getLocale } from "../utils/i18n.js";
 
 function computeAverage(list) {
   if (!list.length) return null;
@@ -23,20 +24,18 @@ function computeAverage(list) {
   };
 }
 
-const RANGES = [
-  { key: "7", label: "7 días" },
-  { key: "30", label: "30 días" },
-  { key: "90", label: "90 días" },
-  { key: "all", label: "Todo" }
-];
-
 export default function StatsPanel({
   allReadings,
   rangedReadings,
   selectedRange,
   onRangeChange,
+  lang = "es",
   className = ""
 }) {
+  const t = STRINGS[lang] || STRINGS.es;
+  const locale = getLocale(lang);
+  const pulseUnit = lang === "en" ? "bpm" : "lpm";
+
   const latest = allReadings[0] || null;
   const latestCat = latest ? classifyBloodPressure(latest.systolic, latest.diastolic) : null;
 
@@ -65,16 +64,16 @@ export default function StatsPanel({
   return (
     <div className={`stats-panel ${className}`.trim()}>
       <div className="stats-toolbar no-print">
-        <h2>Resumen y Promedios</h2>
-        <div className="range-pills" role="group" aria-label="Rango de fechas">
-          {RANGES.map((r) => (
+        <h2>{t.summaryTitle}</h2>
+        <div className="range-pills" role="group">
+          {["7", "30", "90", "all"].map((key) => (
             <button
-              key={r.key}
+              key={key}
               type="button"
-              className={`pill ${selectedRange === r.key ? "active" : ""}`}
-              onClick={() => onRangeChange(r.key)}
+              className={`pill ${selectedRange === key ? "active" : ""}`}
+              onClick={() => onRangeChange(key)}
             >
-              {r.label}
+              {t.ranges[key]}
             </button>
           ))}
         </div>
@@ -82,18 +81,24 @@ export default function StatsPanel({
 
       <div className="kpi-grid">
         <div className="card kpi-card kpi-hero">
-          <span className="kpi-label">Última Medición</span>
+          <span className="kpi-label">{t.latestReading}</span>
           <div className="kpi-value">
             {latest ? `${latest.systolic} / ${latest.diastolic} mmHg` : "— / —"}
           </div>
           <div className="kpi-sub">
             {latest && latestCat ? (
               <>
-                <span className={`badge ${latestCat.badgeClass}`}>{latestCat.label}</span>
-                {latest.pulse != null && <span>• {latest.pulse} lpm</span>}
+                <span className={`badge ${latestCat.badgeClass}`}>
+                  {getBPLabel(latestCat.key, lang)}
+                </span>
+                {latest.pulse != null && (
+                  <span>
+                    • {latest.pulse} {pulseUnit}
+                  </span>
+                )}
                 <span>
                   •{" "}
-                  {new Date(latest.dateTime).toLocaleString("es-ES", {
+                  {new Date(latest.dateTime).toLocaleString(locale, {
                     day: "2-digit",
                     month: "short",
                     hour: "2-digit",
@@ -102,68 +107,81 @@ export default function StatsPanel({
                 </span>
               </>
             ) : (
-              "Sin registros aún"
+              t.noReadingsYet
             )}
           </div>
         </div>
 
         <div className="card kpi-card">
-          <span className="kpi-label">Promedio del Período</span>
+          <span className="kpi-label">{t.periodAvg}</span>
           <div className="kpi-value">
             {avgAll ? `${avgAll.sys} / ${avgAll.dia} mmHg` : "— / —"}
           </div>
           <div className="kpi-sub">
             {avgAll && avgCat ? (
               <>
-                <span className={`badge ${avgCat.badgeClass}`}>{avgCat.label}</span>
-                {avgAll.pulse != null && <span>• Pulso prom: {avgAll.pulse} lpm</span>}
-                <span>• {avgAll.count} med.</span>
+                <span className={`badge ${avgCat.badgeClass}`}>
+                  {getBPLabel(avgCat.key, lang)}
+                </span>
+                {avgAll.pulse != null && (
+                  <span>
+                    • {t.avgPulse}: {avgAll.pulse} {pulseUnit}
+                  </span>
+                )}
+                <span>
+                  • {avgAll.count} {t.measurements}
+                </span>
               </>
             ) : (
-              "0 mediciones en el período"
+              t.noPeriodReadings
             )}
           </div>
         </div>
 
         <div className="card kpi-card">
-          <span className="kpi-label">Mañana (05:00–11:59)</span>
+          <span className="kpi-label">{t.morning}</span>
           <div className="kpi-value">
             {avgMorn ? `${avgMorn.sys} / ${avgMorn.dia} mmHg` : "— / —"}
           </div>
           <div className="kpi-sub">
             {avgMorn
-              ? `${avgMorn.count} med.${avgMorn.pulse != null ? ` • Pulso ${avgMorn.pulse} lpm` : ""}`
-              : "0 mediciones"}
+              ? `${avgMorn.count} ${t.measurements}${
+                  avgMorn.pulse != null ? ` • ${t.pulse} ${avgMorn.pulse} ${pulseUnit}` : ""
+                }`
+              : `0 ${t.measurements}`}
           </div>
         </div>
 
         <div className="card kpi-card">
-          <span className="kpi-label">Tarde/Noche (12:00–04:59)</span>
+          <span className="kpi-label">{t.evening}</span>
           <div className="kpi-value">
             {avgEve ? `${avgEve.sys} / ${avgEve.dia} mmHg` : "— / —"}
           </div>
           <div className="kpi-sub">
             {avgEve
-              ? `${avgEve.count} med.${avgEve.pulse != null ? ` • Pulso ${avgEve.pulse} lpm` : ""}`
-              : "0 mediciones"}
+              ? `${avgEve.count} ${t.measurements}${
+                  avgEve.pulse != null ? ` • ${t.pulse} ${avgEve.pulse} ${pulseUnit}` : ""
+                }`
+              : `0 ${t.measurements}`}
           </div>
         </div>
       </div>
 
       <div className="card distribution-card">
         <div className="distribution-header">
-          <span className="kpi-label">Distribución según guías AHA / OMS</span>
+          <span className="kpi-label">{t.distAHA}</span>
           <span className="kpi-sub">
-            {rangedReadings.length} {rangedReadings.length === 1 ? "registro" : "registros"}
+            {rangedReadings.length} {rangedReadings.length === 1 ? t.record : t.records}
           </span>
         </div>
 
-        <div className="distribution-bar" aria-label="Distribución de categorías">
+        <div className="distribution-bar">
           {ORDERED_CATEGORY_KEYS.map((key) => {
             const count = counts[key];
             if (!count) return null;
             const pct = Math.round((count / rangedReadings.length) * 100);
             const cat = CATEGORIES[key];
+            const lbl = getBPLabel(key, lang);
             return (
               <div
                 key={key}
@@ -172,7 +190,7 @@ export default function StatsPanel({
                   width: `${((count / rangedReadings.length) * 100).toFixed(2)}%`,
                   backgroundColor: cat.color
                 }}
-                title={`${cat.label}: ${count} (${pct}%)`}
+                title={`${lbl}: ${count} (${pct}%)`}
               />
             );
           })}
@@ -180,7 +198,7 @@ export default function StatsPanel({
 
         <div className="distribution-legend">
           {rangedReadings.length === 0 ? (
-            <span>Registra mediciones para ver la distribución por categoría.</span>
+            <span>{t.emptyDist}</span>
           ) : (
             ORDERED_CATEGORY_KEYS.map((key) => {
               const count = counts[key];
@@ -191,7 +209,7 @@ export default function StatsPanel({
                 <span key={key} className="legend-item">
                   <span className="legend-dot" style={{ background: cat.color }} />
                   <span>
-                    {cat.label}: <strong>{count}</strong> ({pct}%)
+                    {getBPLabel(key, lang)}: <strong>{count}</strong> ({pct}%)
                   </span>
                 </span>
               );
