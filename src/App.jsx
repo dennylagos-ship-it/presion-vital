@@ -24,10 +24,9 @@ import {
   exportGlucoseToCsv,
   exportBackupJson,
   generateDemoReadings,
-  generateDemoGlucoseReadings,
-  shareReport,
-  shareGlucoseReport
+  generateDemoGlucoseReadings
 } from "./utils/storage.js";
+import { downloadOrSharePdf } from "./utils/pdfReport.js";
 import {
   STRINGS,
   detectInitialLang,
@@ -263,19 +262,45 @@ export default function App() {
     }
   }
 
+  async function handleDownloadPdf() {
+    const list = activeModule === "bp" ? rangedReadingsDesc : rangedGlucoseDesc;
+    if (!list.length) {
+      alert(t.noExportData);
+      return;
+    }
+    try {
+      await downloadOrSharePdf({
+        module: activeModule,
+        profile: activeProfile,
+        rangeLabel: t.rangeLabels[selectedRange],
+        readings: list,
+        lang,
+        mode: "download"
+      });
+    } catch (err) {
+      console.error("PDF error:", err);
+      window.print();
+    }
+  }
+
   async function handleShareReport() {
     const list = activeModule === "bp" ? rangedReadingsDesc : rangedGlucoseDesc;
     if (!list.length) {
       alert(t.noShareData);
       return;
     }
-    const res =
-      activeModule === "bp"
-        ? await shareReport(activeProfile, t.rangeLabels[selectedRange], list, lang)
-        : await shareGlucoseReport(activeProfile, t.rangeLabels[selectedRange], list, lang);
-
-    if (res.method === "clipboard") {
-      alert(t.copiedAlert);
+    try {
+      await downloadOrSharePdf({
+        module: activeModule,
+        profile: activeProfile,
+        rangeLabel: t.rangeLabels[selectedRange],
+        readings: list,
+        lang,
+        mode: "share"
+      });
+    } catch (err) {
+      console.error("Share PDF error:", err);
+      alert(t.noShareData);
     }
   }
 
@@ -320,7 +345,7 @@ export default function App() {
               <Share2 size={15} />
               {t.share}
             </button>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => window.print()}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleDownloadPdf}>
               <Printer size={15} />
               {t.printSavePdf}
             </button>
@@ -422,7 +447,7 @@ export default function App() {
                 <FileText size={15} />
                 {t.pdfPreview}
               </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => window.print()}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleDownloadPdf}>
                 <Printer size={15} />
                 {t.printPdf}
               </button>
@@ -674,7 +699,7 @@ export default function App() {
               <FileText size={16} />
               {t.pdfPreview}
             </button>
-            <button type="button" className="btn btn-outline" onClick={() => window.print()}>
+            <button type="button" className="btn btn-outline" onClick={handleDownloadPdf}>
               <Printer size={16} />
               {t.printPdf}
             </button>
